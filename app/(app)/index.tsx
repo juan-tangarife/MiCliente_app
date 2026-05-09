@@ -1,10 +1,12 @@
 import ClienteCard from '@/components/clienteCard';
 import { Cliente, obtenerClientes } from '@/database/supabaseClientes';
 import { User } from '@supabase/supabase-js';
+import { useRouter } from 'expo-router';
 import { useCallback, useEffect, useState } from 'react';
 import { ActivityIndicator, Alert, FlatList, Image, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { supabase } from '../../lib/supabase';
 export default function EjemploView() {
+  const router = useRouter();
   const [usuario, setUsuario] = useState<User | null>(null);
   const [clientes, setClientes] = useState<Cliente[]>([]);
   const [cargando, setCargando] = useState(true);
@@ -88,7 +90,7 @@ export default function EjemploView() {
           data={clientes}
           keyExtractor={item => item.nit}
           renderItem={({ item }) => (
-            <ClienteCard cliente={item} onPress={() => {}} />
+            <ClienteCard cliente={item} onPress={() => router.push('/cliente/' + item.nit)} />
           )}
           contentContainerStyle={{ paddingTop:8, }}
           showsVerticalScrollIndicator={false}

@@ -27,3 +27,14 @@ export async function obtenerClientes(): Promise<Cliente[]> {
   if (error) { console.error(error); return []; }
   return data ?? [];
 }
+
+// ── READ: Obtener uno por NIT ───────────────────────────────────
+export async function obtenerClientePorNIT(id: string): Promise<Cliente | null> {
+  const { data, error } = await supabase
+    .from('Cliente')
+    .select('*')
+    .eq('nit', id)
+    .single();
+  if (error) { console.error(error); return null; }
+  return data;
+}
