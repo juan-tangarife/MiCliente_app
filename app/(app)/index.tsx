@@ -1,15 +1,55 @@
+import ClienteCard from '@/components/clienteCard';
+import { Cliente, obtenerClientes } from '@/database/supabaseClientes';
 import { User } from '@supabase/supabase-js';
-import { useEffect, useState } from 'react';
-import { Alert, Image, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { useCallback, useEffect, useState } from 'react';
+import { ActivityIndicator, Alert, FlatList, Image, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { supabase } from '../../lib/supabase';
 export default function EjemploView() {
   const [usuario, setUsuario] = useState<User | null>(null);
+  const [clientes, setClientes] = useState<Cliente[]>([]);
+  const [cargando, setCargando] = useState(true);
 
+  
   useEffect(() => {
     supabase.auth.getUser().then(({ data: { user } }) => {
       setUsuario(user);
     });
   }, []);
+
+  useEffect(() => {
+    cargar();
+    // Suscribirse a cambios en la tabla contactos
+    const canal = supabase
+      .channel('clientes_canal')         // nombre único del canal
+      .on(
+        'postgres_changes',               // tipo de evento
+        {
+          event: '*',                     // '*' = INSERT + UPDATE + DELETE
+          schema: 'public',
+          table: 'Cliente',
+        },
+        (payload) => {
+          // Se ejecuta cada vez que hay un cambio en la tabla
+          console.log('Cambio detectado:', payload.eventType);
+          cargar(); // recargar contactos para mostrar los cambios
+        }
+      )
+      .subscribe();
+
+    // Cancelar la suscripción al salir de la pantalla
+    return () => {
+      supabase.removeChannel(canal);
+    };
+  }, []);
+
+  const cargar = useCallback(async () => {
+    setCargando(true);
+    const datos = await obtenerClientes();
+    setClientes(datos);
+    setCargando(false);
+  }, []);
+
+
 
   const handleLogout = () => {
     supabase.auth.signOut().then(() => {
@@ -23,24 +63,42 @@ export default function EjemploView() {
       <TouchableOpacity onPress={handleLogout} disabled={!usuario}>
         <View style={styles.header}>
           <Image
-            source={{ uri: 'https://picsum.photos/300/200' }}
-            style={{ width: 50, height: 50 }}
-            resizeMode='cover'
+            source={require('../../assets/images/LittleIcono.png')}
+            style={styles.logo}
           />
-          <Text style={styles.nombre}>Chinga tu madre</Text>
+          <Text style={styles.nombre}>Hola, {usuario?.user_metadata?.nombre || 'Usuario'}</Text>
         </View>
       </TouchableOpacity>
       
-      <View style={styles.searchBox}>
+      <View style={styles.searchView}>
         <Image
-          source={{ uri: 'https://picsum.photos/300/200' }}
-          style={{ width: 50, height: 50 , borderRadius: 25}}
-          resizeMode='cover'
+          source={require('../../assets/images/buscar.png')}
+          style={styles.searchIcon}
         />
-        <TextInput placeholder="Buscar" placeholderTextColor="#808080"></TextInput>
+        <TextInput
+          style={styles.input}
+          placeholder="Buscar"
+          placeholderTextColor="#808080"
+        />
       </View>
-      <View>
-      </View>
+      {cargando ? (
+        <ActivityIndicator size='large' color='#2D9CDB' style={{ marginTop:60 }} />
+      ) : (
+        <FlatList
+          data={clientes}
+          keyExtractor={item => item.nit}
+          renderItem={({ item }) => (
+            <ClienteCard cliente={item} onPress={() => {}} />
+          )}
+          contentContainerStyle={{ paddingTop:8, }}
+          showsVerticalScrollIndicator={false}
+          ListEmptyComponent={
+            <Text style={styles.vacio}>
+              No tienes contactos aún 📭
+            </Text>
+          }
+        />
+      )}
     </View>
   );
 }
@@ -50,10 +108,13 @@ const styles = StyleSheet.create({
   header: {
     flexDirection: 'row', alignItems: 'center', marginBottom: 15
   },
+  logo: { width: 60, height: 55 },
   nombre:{
-    fontFamily: 'Comic Sans MS', fontSize: 24, fontWeight: 'medium', padding: 10, alignContent: 'space-between'
+    fontFamily: 'JosefinSans_400Regular', fontSize: 24, fontWeight: 'medium', padding: 10, alignContent: 'space-between'
   },
-  searchBox:   {backgroundColor: '#D9D9D9', borderRadius: 24, padding:10, marginBottom: 15, flexDirection: 'row' },
-  tarjeta:    { backgroundColor: '#fff', padding: 20, borderRadius: 12,
-                shadowColor: '#000', shadowOpacity: 0.1, shadowRadius: 8, elevation: 4 },
+  searchView: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#D9D9D9', borderRadius: 50, paddingHorizontal: 16, justifyContent: 'center', marginBottom: 8 },
+  input: { backgroundColor:'#D9D9D9', borderRadius:50, paddingVertical:16, paddingHorizontal: 10, fontSize:18,
+            color:'#808080', fontFamily:'JosefinSans_400Regular', flex: 1 },
+  searchIcon: { width: 24, height: 24,},
+  vacio: { textAlign: 'center', marginTop: 60, fontSize: 16, color: '#555', fontFamily: 'JosefinSans_400Regular' },
 });
