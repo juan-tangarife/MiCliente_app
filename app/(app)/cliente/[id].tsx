@@ -1,3 +1,4 @@
+import { AcordionDinamico } from '@/components/acordionCard';
 import { Acta, obtenerActaPorNumero } from '@/database/supabaseActas';
 import { Cliente, obtenerClientePorNIT } from '@/database/supabaseClientes';
 import { Cupo, obtenerCuposPorActaId } from '@/database/supabaseCupos';
@@ -6,7 +7,7 @@ import { supabase } from '@/lib/supabase';
 import { User } from '@supabase/supabase-js';
 import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
 import { useCallback, useEffect, useState } from 'react';
-import { ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { ActivityIndicator, FlatList, Image, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 
 
 export default function DetalleCliente() {
@@ -15,9 +16,11 @@ export default function DetalleCliente() {
   const [usuario, setUsuario] = useState<User | null>(null);
   const [cliente, setCliente] = useState<Cliente | null>(null);
   const [acta, setActa] = useState<Acta | null>(null);
-  const [cupo, setCupo] = useState<Cupo[] | null>(null);
-  const [prodCliente, setProdCliente] = useState<ProductoCliente[] | null>(null);
+  const [fechaActa, setFechaActa] = useState<string | null>(null);
+  const [cupos, setCupos] = useState<Cupo[] | null>(null);
+  const [prodClientes, setProdClientes] = useState<ProductoCliente[] | null>(null);
   const [modalEliminar, setModalEliminar] = useState(false);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     supabase.auth.getUser().then(({ data: { user } }) => {
@@ -25,168 +28,259 @@ export default function DetalleCliente() {
     });
   }, []);
 
+  const cargarCliente = useCallback(async () => {
+    if (!id) return;
+      try {
+          const data = await obtenerClientePorNIT(id);
+          setCliente(data);
+          return data;
+       } catch (error) {
+          console.error('Error cargando cliente:', error);
+        }}, [id]);
+
+  const cargarActa = useCallback(async (actaId: string) => {
+    if (!id) return;
+    
+      try {
+          const data = await obtenerActaPorNumero(actaId);
+          if (!data) {
+            setActa(null);
+            setFechaActa(null);
+            return;
+          }
+          setActa(data);
+          const opciones = { month: 'long', year: 'numeric' };
+          if (data.fecha) {
+            const fechaFormateada = new Date(data.fecha).toLocaleDateString('es-ES', opciones);
+            setFechaActa(fechaFormateada);
+          } else {
+            setFechaActa(null);
+          }
+      } catch (error) {
+          console.error('Error cargando acta:', error);
+      }}, [id]);
+
+  const cargarCupos = useCallback(async (actaId: string) => {
+    if (!id) return;
+      try {            
+          const data = await obtenerCuposPorActaId(actaId);
+          setCupos(data);   
+      } catch (error) {
+          console.error('Error cargando cupo:', error);
+      }}, [id]);
+
+  const cargarProdCliente = useCallback(async () => {
+    if (!id) return;
+      try {            
+          const data = await obtenerProdClientePorId(id);
+          setProdClientes(data);
+      } catch (error) {
+          console.error('Error cargando producto-cliente:', error);
+      }}, [id]);
+
+  const cargarTodos = useCallback(async () => {
+    if (!id) return;
+    try {            
+      const clienteData = await obtenerClientePorNIT(id);
+      if (!clienteData) return;
+      setCliente(clienteData);
+      if(clienteData.actaId) {
+        await Promise.all([
+          cargarActa(clienteData.actaId),
+          cargarCupos(clienteData.actaId),
+        ]);
+      }
+      await cargarProdCliente(); // esta usa id directamente, no actaId
+    } catch (error) {
+      console.error('Error cargando datos:', error);
+    } finally {
+      setLoading(false);
+    }}, [id]);
+
   useEffect(() => {
-    cargarCliente();
-    cargarActa();
-    cargarCupos();
-    cargarProdCliente();
+    cargarTodos();
+
       // Suscribirse a cambios en la tabla contactos
       const canal = supabase
-        .channel('cambios_proyecto_canal')         // nombre único del canal
-        .on(
-          'postgres_changes',               // tipo de evento
-          {
-            event: '*',                     // '*' = INSERT + UPDATE + DELETE
-            schema: 'public',
-            table: 'Cliente',
-          },
-          (payload) => {
-            // Se ejecuta cada vez que hay un cambio en la tabla
-            console.log('Cambio detectado:', payload.eventType);
-          }
-        )
-        .on(
-          'postgres_changes',               // tipo de evento
-          {
-            event: '*',                     // '*' = INSERT + UPDATE + DELETE
-            schema: 'public',
-            table: 'Actas',
-          },
-          (payload) => {
-            // Se ejecuta cada vez que hay un cambio en la tabla
-            console.log('Cambio detectado:', payload.eventType);
-          }
-        )
-        .on(
-          'postgres_changes',               // tipo de evento
-          {
-            event: '*',                     // '*' = INSERT + UPDATE + DELETE
-            schema: 'public',
-            table: 'Cupos',
-          },
-          (payload) => {
-            // Se ejecuta cada vez que hay un cambio en la tabla
-            console.log('Cambio detectado:', payload.eventType);
-          }
-        )
-        .on(
-          'postgres_changes',               // tipo de evento
-          {
-            event: '*',                     // '*' = INSERT + UPDATE + DELETE
-            schema: 'public',
-            table: 'ProductoCliente',
-          },
-          (payload) => {
-            // Se ejecuta cada vez que hay un cambio en la tabla
-            console.log('Cambio detectado:', payload.eventType);
-          }
-        )
-        .subscribe();
-  
-      // Cancelar la suscripción al salir de la pantalla
-      return () => {
-        supabase.removeChannel(canal);
-      };
-    }, []);
+    .channel('cambios_proyecto_canal')
+    .on('postgres_changes', { event: '*', schema: 'public', table: 'Cliente' },
+      () => cargarCliente())
+    .on('postgres_changes', { event: '*', schema: 'public', table: 'Actas' },
+      () => { if (cliente?.actaId) cargarActa(cliente.actaId); })
+    .on('postgres_changes', { event: '*', schema: 'public', table: 'Cupos' },
+      () => { if (cliente?.actaId) cargarCupos(cliente.actaId); })
+    .on('postgres_changes', { event: '*', schema: 'public', table: 'ProductoCliente' },
+      () => cargarProdCliente())
+    .subscribe();
 
-    const cargarCliente = useCallback(async () => {
-      if (!id) return;
-        try {
-            const data = await obtenerClientePorNIT(id);
-            setCliente(data);
-        } catch (error) {
-            console.error('Error cargando cliente:', error);
-        }
+  return () => { 
+    supabase.removeChannel(canal);
+    setCliente(null);
+    setActa(null);
+    setFechaActa(null);
+    setCupos(null);
+    setProdClientes(null);
+    setLoading(true);
+   };
     }, [id]);
 
-    const cargarActa = useCallback(async () => {
-      if (!id) return;
-        try {            
-            const data = await obtenerActaPorNumero(cliente?.actaId || '');
-            setActa(data);
-        } catch (error) {
-            console.error('Error cargando acta:', error);
-        }   
-    }, [id]);
+    // Pantalla de carga
+  if (loading) {
+    return (
+      <>
+        <Stack.Screen options={{ title: 'Cargando...' }} />
+        <View style={styles.centered}>
+          <ActivityIndicator size="large" color="#E6000D" />
+          <Text style={styles.loadingText}>Obteniendo información...</Text>
+        </View>
+      </>
+    );
+  }
 
-    const cargarCupos = useCallback(async () => {
-      if (!id) return;
-        try {            
-            const data = await obtenerCuposPorActaId(cliente?.actaId || '');
-            setCupo(data);
-        } catch (error) {
-            console.error('Error cargando cupo:', error);
-        }   
-    }, [id]);
-
-    const cargarProdCliente = useCallback(async () => {
-      if (!id) return;
-        try {            
-            const data = await obtenerProdClientePorId(id);
-            setProdCliente(data);
-        } catch (error) {
-            console.error('Error cargando producto-cliente:', error);
-        }   
-    }, [id]);
-
-  // Pantalla de carga
+  // ── Pantalla si no existe el cliente ──────────────────────────
   if (!cliente) {
     return (
-      <View style={styles.centrado}>
-        <Text style={styles.errorTexto}>Cliente no encontrado 🔍</Text>
-        <TouchableOpacity style={styles.btnVolver} onPress={() => router.back()}>
-          <Text style={styles.btnVolverTexto}>← Volver</Text>
-        </TouchableOpacity>
-      </View>
+      <>
+        <Stack.Screen options={{ title: 'Error' }} />
+        <View style={styles.centered}>
+          <Text style={styles.errorText}>No se encontró el cliente.</Text>
+        </View>
+      </>
     );
   }
 
   return (
-    <ScrollView style={styles.contenedor} contentContainerStyle={styles.contenido}>
-      <Stack.Screen options={{ title: cliente.name }} />
-      <View>
-        <Text style={styles.nombre}>{cliente.name}</Text>
-        <Text style={styles.empresa}>{cliente.sectorEconomico}</Text>
+    <View style={styles.contenedor}>
+      <View style={styles.header}>
+        <TouchableOpacity onPress={() => router.back()}>
+          <Image style={styles.arrow} source={require('../../../assets/images/atras.png')} />
+        </TouchableOpacity>
+        <Image style={styles.avatar} source={require('../../../assets/images/avatar.png')} />
+        <Image style={styles.arrow} source={require('../../../assets/images/eliminar.png')} />
+        
       </View>
-    </ScrollView>
+      <ScrollView contentContainerStyle={styles.contenido}>
+        <Text style={styles.nombre}>{cliente.name}</Text>
+        <View style={styles.tarjeta}>
+          <Text style={styles.tarjetaTitle}>Gerente</Text>
+          <Text style={styles.tarjetaContenido}>{cliente.gerente}</Text>
+          <View style={styles.linea}></View>
+          <Text style={styles.tarjetaTitle}>NIT</Text>
+          <Text style={styles.tarjetaContenido}>{cliente.nit}</Text>
+          <View style={styles.linea}></View>
+          <Text style={styles.tarjetaTitle}>Teléfono</Text>
+          <Text style={styles.tarjetaContenido}>{cliente.telefono}</Text>
+          <View style={styles.linea}></View>
+          <Text style={styles.tarjetaTitle}>Correo</Text>
+          <Text style={styles.tarjetaContenido}>{cliente.email}</Text>
+        </View>
+        <AcordionDinamico titulo="Contacto">
+          <View>
+            <Text style={styles.tarjetaTitleContacto}>Nombre</Text>
+            <Text style={styles.tarjetaContenidoContacto}>{cliente.nombreContacto}</Text>
+            <View style={styles.linea}></View>
+            <Text style={styles.tarjetaTitleContacto}>Teléfono</Text>
+            <Text style={styles.tarjetaContenidoContacto}>{cliente.telefonoContacto}</Text>
+            <View style={styles.linea}></View>
+            <Text style={styles.tarjetaTitleContacto}>Correo</Text>
+            <Text style={styles.tarjetaContenidoContacto}>{cliente.correoContacto}</Text>
+          </View>
+        </AcordionDinamico>
+        <View style= {{flexDirection:'row', justifyContent:'space-between'}}>
+          <View style={styles.tarjeta}>
+            <Text style={styles.tarjetaTitle}>Sector</Text>
+          </View>
+          <View style={styles.tarjetaSector}>
+            <Text style={styles.tarjetaContenidoSector}>{cliente.sectorEconomico}</Text>
+          </View>
+        </View>
+        <View style={styles.tarjeta}>
+          <View style={{flexDirection:'row', justifyContent:'space-between'}}>
+            <Text style={styles.tarjetaTitle}>Acta</Text>
+            <Text style={styles.tarjetaContenido}>{acta?.numeroActa}</Text>
+          </View>
+          <View style={styles.tarjetaFecha}>
+            <Text style={styles.tarjetaFechaContenido}>{fechaActa}</Text>
+          </View>
+        </View>
+        <View style={styles.tarjeta}>
+          <Text style={styles.tarjetaTitle}>Cupos</Text>
+          <FlatList
+            data={cupos || []}
+            renderItem={({ item }) => (
+              <View style={styles.cupos}>
+                <Text style={styles.tarjetaTitulo}>{item.tipo}</Text>
+                <Text style={styles.tarjetaTexto }>${item.monto}</Text>
+              </View>
+            )}
+            numColumns={2}
+            ListEmptyComponent={
+              <View style={{justifyContent:'center', alignItems:'center', padding:4}}>
+                <Text style={styles.loadingText}>No hay cupos agregados</Text>
+              </View>
+            }
+          />
+        </View>
+        <View style={styles.tarjeta}>
+          <Text style={styles.tarjetaTitle}>Productos</Text>
+          <FlatList
+            data={prodClientes || []}
+            renderItem={({ item }) => (
+              <View style={styles.productos}>
+                <Text style={styles.tarjetaTitulo}>{item.Productos?.nombre}</Text>
+              </View>
+            )}
+            numColumns={2}
+            ListEmptyComponent={
+              <View style={{justifyContent:'center', alignItems:'center', padding:4}}>
+                <Text style={styles.loadingText}>No hay productos agregados</Text>
+              </View>
+            
+          }
+          />
+        </View>
+        <View style={styles.tarjeta}>
+          <Text style={styles.tarjetaTitle}>Promedios</Text>
+          <View style={{flexDirection:'row', justifyContent:'space-between'}}>
+            <View style={styles.saldos}>
+              <Text style={styles.tarjetaTitulo}>Saldo Captación</Text>
+              <Text style={styles.tarjetaTexto}>${cliente.captacion}</Text>
+            </View>
+            <View style={styles.saldos}>
+              <Text style={styles.tarjetaTitulo}>Saldo Colocación</Text>
+              <Text style={styles.tarjetaTexto}>${cliente.colocacion}</Text>
+            </View>
+          </View>
+        </View>
+      </ScrollView>
+    </View>
+    
   );
 }
 
 const styles = StyleSheet.create({
-  contenedor:       { flex:1, backgroundColor:'#f0f4f8', paddingTop: 40 },
-  contenido:        { paddingBottom:40 },
-  centrado:         { flex:1, justifyContent:'center', alignItems:'center', gap:16 },
-  errorTexto:       { fontSize:18, color:'#888' },
-  btnVolver:        { borderWidth:1, borderColor:'#2D9CDB', padding:14, borderRadius:10 },
-  btnVolverTexto:   { color:'#2D9CDB', fontSize:16 },
-  avatarWrapper:    { alignItems:'center', marginTop:20, marginBottom:16 },
-  avatar:           { width:110, height:110, borderRadius:55 },
-  nombre:           { fontSize:26, fontWeight:'bold', color:'#1E3A5F', textAlign:'center' },
-  empresa:          { fontSize:15, color:'#2D9CDB', textAlign:'center', marginTop:4, marginBottom:24 },
-  acciones:         { flexDirection:'row', justifyContent:'center', gap:16, marginBottom:24 },
-  btnAccion:        { alignItems:'center', backgroundColor:'#fff', borderRadius:14,
-                      paddingVertical:14, paddingHorizontal:28,
-                      shadowColor:'#000', shadowOpacity:0.07, shadowRadius:6, elevation:3 },
-  btnAccionEmoji:   { fontSize:26, marginBottom:4 },
-  btnAccionTexto:   { fontSize:13, color:'#555', fontWeight:'500' },
-  tarjeta:          { margin:16, backgroundColor:'#fff', borderRadius:14, padding:16,
-                      shadowColor:'#000', shadowOpacity:0.07, shadowRadius:6, elevation:3 },
-  seccionTitulo:    { fontSize:12, color:'#aaa', fontWeight:'600', letterSpacing:1, marginBottom:12 },
-  fila:             { flexDirection:'row', justifyContent:'space-between', paddingVertical:10 },
-  filaLabel:        { fontSize:15, color:'#888' },
-  filaValor:        { fontSize:15, color:'#1E3A5F', fontWeight:'500', flexShrink:1, textAlign:'right' },
-  separador:        { height:1, backgroundColor:'#f0f0f0' },
-  btnEliminar:      { margin:16, marginTop:8, padding:16, borderRadius:12,
-                      backgroundColor:'#FDEDEC', alignItems:'center' },
-  btnEliminarTexto: { color:'#E74C3C', fontSize:15, fontWeight:'600' },
-  overlay:          { flex:1, backgroundColor:'rgba(0,0,0,0.45)',
-                      justifyContent:'center', alignItems:'center' },
-  modalCaja:        { backgroundColor:'#fff', borderRadius:16, padding:24, width:'82%' },
-  modalTitulo:      { fontSize:18, fontWeight:'bold', color:'#1E3A5F', marginBottom:8 },
-  modalMsg:         { fontSize:15, color:'#555', marginBottom:24, lineHeight:22 },
-  modalBtns:        { flexDirection:'row', gap:12 },
-  btnCancelar:      { flex:1, padding:13, borderRadius:10, borderWidth:1,
-                      borderColor:'#ddd', alignItems:'center' },
-  btnConfirmar:     { flex:1, padding:13, borderRadius:10,
-                      backgroundColor:'#E74C3C', alignItems:'center' },
+  contenedor:       { flex:1, backgroundColor:'#EFEFEF'},
+  header:           { flexDirection:'row',  gap:12,  backgroundColor: '#D9D9D9', padding: 12, justifyContent:'space-between' },
+  contenido:        { padding: 16 },
+  arrow:            { width:24, height:24, alignContent:'flex-start' },
+  avatar:           { width:230, height:230, borderRadius:55, marginRight:20, alignSelf:'center' },
+  centered:         { flex:1, justifyContent:'center', alignItems:'center', gap:12 },
+  errorText:        { fontSize:15, color:'#E6000D', fontFamily:'JosefinSans_400Regular' },
+  loadingText:      { fontSize:16, color:'#888', fontFamily:'JosefinSans_400Regular' },
+  nombre:           { fontSize:36, fontFamily:'JosefinSans_400Regular', color:'#E6000D', textAlign:'center', opacity:0.6 },
+  tarjeta:          { backgroundColor:'#D9D9D9', borderRadius:30, padding:16, marginVertical:8 },
+  tarjetaTitle:     { fontSize:20, color:'#E6000D', fontFamily:'JosefinSans_400Regular', opacity: 0.6 },
+  tarjetaContenido: { fontSize:18, color:'#5D5D5D', opacity: 0.6, fontFamily:'JosefinSans_400Regular' },
+  linea:            { height:1, backgroundColor:'#5D5D5D', marginVertical:8 },
+  tarjetaTitleContacto:     { fontSize:17, color:'#E6000D', fontFamily:'JosefinSans_400Regular', opacity: 0.6 },
+  tarjetaContenidoContacto: { fontSize:16, color:'#5D5D5D', marginTop:4, opacity: 0.6, fontFamily:'JosefinSans_400Regular' },
+  tarjetaSector:     { backgroundColor:'#C4C4C4', borderRadius:30, marginVertical:8, flex:1, marginHorizontal:4, justifyContent:'center', alignItems:'center'  },
+  tarjetaContenidoSector: { fontSize:24, color:'#2A2A2A', marginTop:4, opacity: 0.6, fontFamily:'JosefinSans_700Bold' }, 
+  tarjetaFecha: {backgroundColor: '#FF0513', borderRadius: 30, padding: 16, marginVertical: 4, alignItems:'center', flex:1, marginHorizontal:40, opacity:0.6, justifyContent:'center' },
+  tarjetaFechaContenido: { fontSize:22, color:'#FFFFFF', fontFamily:'JosefinSans_700Bold' },
+  cupos: {backgroundColor: '#FF0513', borderRadius: 30, padding: 8, marginVertical: 4, alignItems:'center', opacity:0.6, justifyContent:'center', alignContent:'center', flex:1, margin:4 },
+  productos: {backgroundColor: '#F8981F', borderRadius: 30, padding: 8, marginVertical: 4, alignItems:'center', opacity:0.6, justifyContent:'center', alignContent:'center', flex:1, margin:4 },
+  saldos: {backgroundColor: '#FFDE00', borderRadius: 30, padding: 8, marginVertical: 4, alignItems:'center', opacity:0.6, justifyContent:'center', alignContent:'center', flex:1, margin:4 },
+  tarjetaTitulo: { fontSize:18, color:'#FFFFFF', fontFamily:'JosefinSans_700Bold', justifyContent:'center', alignItems:'center', textAlign:'center' },
+  tarjetaTexto: { fontSize:18, color:'#FFFFFF', fontFamily:'JosefinSans_400Regular', justifyContent:'center', alignItems:'center', textAlign:'center' },
 });
