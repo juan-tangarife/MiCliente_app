@@ -30,9 +30,24 @@ export default function TabLayout() {
         }}
       />
       <Tabs.Screen
+        name="opciones"
+        options={{
+          title: '',
+          tabBarIcon: ({ color }) => <IconSymbol size={32} name="plus" color={color} />,
+        }}
+      />
+      <Tabs.Screen
         name='cliente/[id]'
         options={{
           tabBarButton: () => null,  // lo oculta de la barra
+          tabBarStyle: { display: 'none' }, // oculta la barra cuando se muestra esta pantalla
+        }}
+      />
+      <Tabs.Screen
+        name='cliente/formulario'
+        options={{
+          tabBarButton: () => null,  // lo oculta de la barra
+          tabBarStyle: { display: 'none' }, // oculta la barra cuando se muestra esta pantalla
         }}
       />
     </Tabs>

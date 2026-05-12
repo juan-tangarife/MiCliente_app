@@ -27,3 +27,12 @@ export async function obtenerCuposPorActaId(actaId: string): Promise<Cupo[] | nu
   return data;
 }
 
+export async function eliminarCuposPorActaId(actaId: string): Promise<boolean> {
+  const { error } = await supabase
+    .from('Cupos')
+    .delete()
+    .eq('actaId', actaId);
+  // RLS garantiza que solo puedes eliminar tus propios registros
+  if (error) { console.error(error); return false; }
+  return true;
+}

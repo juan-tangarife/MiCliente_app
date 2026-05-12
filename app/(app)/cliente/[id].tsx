@@ -1,13 +1,13 @@
 import { AcordionDinamico } from '@/components/acordionCard';
-import { Acta, obtenerActaPorNumero } from '@/database/supabaseActas';
-import { Cliente, obtenerClientePorNIT } from '@/database/supabaseClientes';
-import { Cupo, obtenerCuposPorActaId } from '@/database/supabaseCupos';
-import { obtenerProdClientePorId, ProductoCliente } from '@/database/supabaseProdCliente';
+import { Acta, eliminarActa, obtenerActaPorNumero } from '@/database/supabaseActas';
+import { Cliente, eliminarCliente, obtenerClientePorNIT } from '@/database/supabaseClientes';
+import { Cupo, eliminarCuposPorActaId, obtenerCuposPorActaId } from '@/database/supabaseCupos';
+import { eliminarProdCliente, obtenerProdClientePorId, ProductoCliente } from '@/database/supabaseProdCliente';
 import { supabase } from '@/lib/supabase';
 import { User } from '@supabase/supabase-js';
 import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
 import { useCallback, useEffect, useState } from 'react';
-import { ActivityIndicator, FlatList, Image, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { ActivityIndicator, Alert, FlatList, Image, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 
 
 export default function DetalleCliente() {
@@ -97,6 +97,28 @@ export default function DetalleCliente() {
       setLoading(false);
     }}, [id]);
 
+    const mostrarConfirmacionEliminar = () => {
+      Alert.alert('Eliminar cliente', '¿Estás seguro de que quieres eliminar este cliente?', [
+      { text: 'Eliminar',  onPress: () => handleEliminar()  },
+      { text: 'Cancelar', style: 'cancel' },
+    ]);
+    };
+
+    const handleEliminar = async () => {
+      if (!cliente) return;
+      try{
+        await Promise.all([
+          eliminarCuposPorActaId(cliente.actaId),
+          eliminarProdCliente(cliente.nit),
+          eliminarActa(cliente.actaId),
+          eliminarCliente(cliente.nit)
+        ]);
+        router.back();
+      } catch (error) {
+        console.error('Error eliminando cliente:', error);
+      }
+    };
+
   useEffect(() => {
     cargarTodos();
 
@@ -150,117 +172,124 @@ export default function DetalleCliente() {
   }
 
   return (
-    <View style={styles.contenedor}>
-      <View style={styles.header}>
-        <TouchableOpacity onPress={() => router.back()}>
-          <Image style={styles.arrow} source={require('../../../assets/images/atras.png')} />
-        </TouchableOpacity>
-        <Image style={styles.avatar} source={require('../../../assets/images/avatar.png')} />
-        <Image style={styles.arrow} source={require('../../../assets/images/eliminar.png')} />
-        
-      </View>
-      <ScrollView contentContainerStyle={styles.contenido}>
-        <Text style={styles.nombre}>{cliente.name}</Text>
-        <View style={styles.tarjeta}>
-          <Text style={styles.tarjetaTitle}>Gerente</Text>
-          <Text style={styles.tarjetaContenido}>{cliente.gerente}</Text>
-          <View style={styles.linea}></View>
-          <Text style={styles.tarjetaTitle}>NIT</Text>
-          <Text style={styles.tarjetaContenido}>{cliente.nit}</Text>
-          <View style={styles.linea}></View>
-          <Text style={styles.tarjetaTitle}>Teléfono</Text>
-          <Text style={styles.tarjetaContenido}>{cliente.telefono}</Text>
-          <View style={styles.linea}></View>
-          <Text style={styles.tarjetaTitle}>Correo</Text>
-          <Text style={styles.tarjetaContenido}>{cliente.email}</Text>
+    <>
+      <View style={styles.contenedor}>
+        <View style={styles.header}>
+          <TouchableOpacity onPress={() => router.back()}>
+            <Image style={styles.arrow} source={require('../../../assets/images/atras.png')} />
+          </TouchableOpacity>
+          <Image style={styles.avatar} source={require('../../../assets/images/avatar.png')} />
+          <TouchableOpacity onPress={mostrarConfirmacionEliminar}>
+            <Image style={styles.arrow} source={require('../../../assets/images/eliminar.png')} />
+          </TouchableOpacity>
+         
+          
         </View>
-        <AcordionDinamico titulo="Contacto">
-          <View>
-            <Text style={styles.tarjetaTitleContacto}>Nombre</Text>
-            <Text style={styles.tarjetaContenidoContacto}>{cliente.nombreContacto}</Text>
-            <View style={styles.linea}></View>
-            <Text style={styles.tarjetaTitleContacto}>Teléfono</Text>
-            <Text style={styles.tarjetaContenidoContacto}>{cliente.telefonoContacto}</Text>
-            <View style={styles.linea}></View>
-            <Text style={styles.tarjetaTitleContacto}>Correo</Text>
-            <Text style={styles.tarjetaContenidoContacto}>{cliente.correoContacto}</Text>
-          </View>
-        </AcordionDinamico>
-        <View style= {{flexDirection:'row', justifyContent:'space-between'}}>
+        <ScrollView contentContainerStyle={styles.contenido}>
+          <Text style={styles.nombre}>{cliente.name}</Text>
           <View style={styles.tarjeta}>
-            <Text style={styles.tarjetaTitle}>Sector</Text>
+            <Text style={styles.tarjetaTitle}>Gerente</Text>
+            <Text style={styles.tarjetaContenido}>{cliente.gerente}</Text>
+            <View style={styles.linea}></View>
+            <Text style={styles.tarjetaTitle}>NIT</Text>
+            <Text style={styles.tarjetaContenido}>{cliente.nit}</Text>
+            <View style={styles.linea}></View>
+            <Text style={styles.tarjetaTitle}>Teléfono</Text>
+            <Text style={styles.tarjetaContenido}>{cliente.telefono}</Text>
+            <View style={styles.linea}></View>
+            <Text style={styles.tarjetaTitle}>Correo</Text>
+            <Text style={styles.tarjetaContenido}>{cliente.email}</Text>
           </View>
-          <View style={styles.tarjetaSector}>
-            <Text style={styles.tarjetaContenidoSector}>{cliente.sectorEconomico}</Text>
+          <AcordionDinamico titulo="Contacto">
+            <View>
+              <Text style={styles.tarjetaTitleContacto}>Nombre</Text>
+              <Text style={styles.tarjetaContenidoContacto}>{cliente.nombreContacto}</Text>
+              <View style={styles.linea}></View>
+              <Text style={styles.tarjetaTitleContacto}>Teléfono</Text>
+              <Text style={styles.tarjetaContenidoContacto}>{cliente.telefonoContacto}</Text>
+              <View style={styles.linea}></View>
+              <Text style={styles.tarjetaTitleContacto}>Correo</Text>
+              <Text style={styles.tarjetaContenidoContacto}>{cliente.correoContacto}</Text>
+            </View>
+          </AcordionDinamico>
+          <View style= {{flexDirection:'row', justifyContent:'space-between'}}>
+            <View style={styles.tarjeta}>
+              <Text style={styles.tarjetaTitle}>Sector</Text>
+            </View>
+            <View style={styles.tarjetaSector}>
+              <Text style={styles.tarjetaContenidoSector}>{cliente.sectorEconomico}</Text>
+            </View>
           </View>
-        </View>
-        <View style={styles.tarjeta}>
-          <View style={{flexDirection:'row', justifyContent:'space-between'}}>
-            <Text style={styles.tarjetaTitle}>Acta</Text>
-            <Text style={styles.tarjetaContenido}>{acta?.numeroActa}</Text>
+          <View style={styles.tarjeta}>
+            <View style={{flexDirection:'row', justifyContent:'space-between'}}>
+              <Text style={styles.tarjetaTitle}>Acta</Text>
+              <Text style={styles.tarjetaContenido}>{acta?.numeroActa}</Text>
+            </View>
+            <View style={styles.tarjetaFecha}>
+              <Text style={styles.tarjetaFechaContenido}>{fechaActa}</Text>
+            </View>
           </View>
-          <View style={styles.tarjetaFecha}>
-            <Text style={styles.tarjetaFechaContenido}>{fechaActa}</Text>
+          <View style={styles.tarjeta}>
+            <Text style={styles.tarjetaTitle}>Cupos</Text>
+            <FlatList
+              data={cupos || []}
+              renderItem={({ item }) => (
+                <View style={styles.cupos}>
+                  <Text style={styles.tarjetaTitulo}>{item.tipo}</Text>
+                  <Text style={styles.tarjetaTexto }>${item.monto}</Text>
+                </View>
+              )}
+              numColumns={2}
+              ListEmptyComponent={
+                <View style={{justifyContent:'center', alignItems:'center', padding:4}}>
+                  <Text style={styles.loadingText}>No hay cupos agregados</Text>
+                </View>
+              }
+            />
           </View>
-        </View>
-        <View style={styles.tarjeta}>
-          <Text style={styles.tarjetaTitle}>Cupos</Text>
-          <FlatList
-            data={cupos || []}
-            renderItem={({ item }) => (
-              <View style={styles.cupos}>
-                <Text style={styles.tarjetaTitulo}>{item.tipo}</Text>
-                <Text style={styles.tarjetaTexto }>${item.monto}</Text>
-              </View>
-            )}
-            numColumns={2}
-            ListEmptyComponent={
-              <View style={{justifyContent:'center', alignItems:'center', padding:4}}>
-                <Text style={styles.loadingText}>No hay cupos agregados</Text>
-              </View>
+          <View style={styles.tarjeta}>
+            <Text style={styles.tarjetaTitle}>Productos</Text>
+            <FlatList
+              data={prodClientes || []}
+              renderItem={({ item }) => (
+                <View style={styles.productos}>
+                  <Text style={styles.tarjetaTitulo}>{item.Productos?.nombre}</Text>
+                </View>
+              )}
+              numColumns={2}
+              ListEmptyComponent={
+                <View style={{justifyContent:'center', alignItems:'center', padding:4}}>
+                  <Text style={styles.loadingText}>No hay productos agregados</Text>
+                </View>
+              
             }
-          />
-        </View>
-        <View style={styles.tarjeta}>
-          <Text style={styles.tarjetaTitle}>Productos</Text>
-          <FlatList
-            data={prodClientes || []}
-            renderItem={({ item }) => (
-              <View style={styles.productos}>
-                <Text style={styles.tarjetaTitulo}>{item.Productos?.nombre}</Text>
+            />
+          </View>
+          <View style={styles.tarjeta}>
+            <Text style={styles.tarjetaTitle}>Promedios</Text>
+            <View style={{flexDirection:'row', justifyContent:'space-between'}}>
+              <View style={styles.saldos}>
+                <Text style={styles.tarjetaTitulo}>Saldo Captación</Text>
+                <Text style={styles.tarjetaTexto}>${cliente.captacion}</Text>
               </View>
-            )}
-            numColumns={2}
-            ListEmptyComponent={
-              <View style={{justifyContent:'center', alignItems:'center', padding:4}}>
-                <Text style={styles.loadingText}>No hay productos agregados</Text>
+              <View style={styles.saldos}>
+                <Text style={styles.tarjetaTitulo}>Saldo Colocación</Text>
+                <Text style={styles.tarjetaTexto}>${cliente.colocacion}</Text>
               </View>
-            
-          }
-          />
-        </View>
-        <View style={styles.tarjeta}>
-          <Text style={styles.tarjetaTitle}>Promedios</Text>
-          <View style={{flexDirection:'row', justifyContent:'space-between'}}>
-            <View style={styles.saldos}>
-              <Text style={styles.tarjetaTitulo}>Saldo Captación</Text>
-              <Text style={styles.tarjetaTexto}>${cliente.captacion}</Text>
-            </View>
-            <View style={styles.saldos}>
-              <Text style={styles.tarjetaTitulo}>Saldo Colocación</Text>
-              <Text style={styles.tarjetaTexto}>${cliente.colocacion}</Text>
             </View>
           </View>
-        </View>
-      </ScrollView>
-    </View>
-    
+        </ScrollView>
+        <TouchableOpacity style={styles.fab} onPress={() => router.push({ pathname: '/cliente/formulario', params: { id: cliente.nit } })}>
+          <Image source={require('@/assets/images/editar.png')} style={styles.icon} />
+        </TouchableOpacity>
+      </View>
+    </>
   );
 }
 
 const styles = StyleSheet.create({
   contenedor:       { flex:1, backgroundColor:'#EFEFEF'},
-  header:           { flexDirection:'row',  gap:12,  backgroundColor: '#D9D9D9', padding: 12, justifyContent:'space-between' },
+  header:           { flexDirection:'row',  gap:12,  backgroundColor: '#D9D9D9', padding: 12, justifyContent:'space-between', paddingTop:40 },
   contenido:        { padding: 16 },
   arrow:            { width:24, height:24, alignContent:'flex-start' },
   avatar:           { width:230, height:230, borderRadius:55, marginRight:20, alignSelf:'center' },
@@ -277,10 +306,12 @@ const styles = StyleSheet.create({
   tarjetaSector:     { backgroundColor:'#C4C4C4', borderRadius:30, marginVertical:8, flex:1, marginHorizontal:4, justifyContent:'center', alignItems:'center'  },
   tarjetaContenidoSector: { fontSize:24, color:'#2A2A2A', marginTop:4, opacity: 0.6, fontFamily:'JosefinSans_700Bold' }, 
   tarjetaFecha: {backgroundColor: '#FF0513', borderRadius: 30, padding: 16, marginVertical: 4, alignItems:'center', flex:1, marginHorizontal:40, opacity:0.6, justifyContent:'center' },
-  tarjetaFechaContenido: { fontSize:22, color:'#FFFFFF', fontFamily:'JosefinSans_700Bold' },
+  tarjetaFechaContenido: { fontSize:22, color:'#FFFFFF', fontFamily:'JosefinSans_700Bold', justifyContent:'center', alignItems:'center', textAlign:'center' },
   cupos: {backgroundColor: '#FF0513', borderRadius: 30, padding: 8, marginVertical: 4, alignItems:'center', opacity:0.6, justifyContent:'center', alignContent:'center', flex:1, margin:4 },
   productos: {backgroundColor: '#F8981F', borderRadius: 30, padding: 8, marginVertical: 4, alignItems:'center', opacity:0.6, justifyContent:'center', alignContent:'center', flex:1, margin:4 },
   saldos: {backgroundColor: '#FFDE00', borderRadius: 30, padding: 8, marginVertical: 4, alignItems:'center', opacity:0.6, justifyContent:'center', alignContent:'center', flex:1, margin:4 },
   tarjetaTitulo: { fontSize:18, color:'#FFFFFF', fontFamily:'JosefinSans_700Bold', justifyContent:'center', alignItems:'center', textAlign:'center' },
   tarjetaTexto: { fontSize:18, color:'#FFFFFF', fontFamily:'JosefinSans_400Regular', justifyContent:'center', alignItems:'center', textAlign:'center' },
+  fab: { position:'absolute', bottom:20, right:20, backgroundColor:'#E6000D', width:60, height:60, borderRadius:30, justifyContent:'center', alignItems:'center' },
+  icon: { width:40, height:40 },
 });

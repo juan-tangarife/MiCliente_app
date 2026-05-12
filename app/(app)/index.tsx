@@ -1,5 +1,5 @@
 import ClienteCard from '@/components/clienteCard';
-import { Cliente, obtenerClientes } from '@/database/supabaseClientes';
+import { buscarClientes, Cliente, obtenerClientes } from '@/database/supabaseClientes';
 import { User } from '@supabase/supabase-js';
 import { useRouter } from 'expo-router';
 import { useCallback, useEffect, useState } from 'react';
@@ -10,7 +10,7 @@ export default function EjemploView() {
   const [usuario, setUsuario] = useState<User | null>(null);
   const [clientes, setClientes] = useState<Cliente[]>([]);
   const [cargando, setCargando] = useState(true);
-
+  const [busqueda, setBusqueda] = useState('');
   
   useEffect(() => {
     supabase.auth.getUser().then(({ data: { user } }) => {
@@ -51,7 +51,18 @@ export default function EjemploView() {
     setCargando(false);
   }, []);
 
-
+  // Búsqueda en tiempo real con debounce simple
+  useEffect(() => {
+    const timer = setTimeout(async () => {
+      if (busqueda.trim() === '') {
+        cargar();
+      } else {
+        const resultados = await buscarClientes(busqueda.trim());
+        setClientes(resultados);
+      }
+    }, 300);  // espera 300ms antes de buscar (evita buscar cada tecla)
+    return () => clearTimeout(timer);
+  }, [busqueda]);
 
   const handleLogout = () => {
     supabase.auth.signOut().then(() => {
@@ -81,10 +92,12 @@ export default function EjemploView() {
           style={styles.input}
           placeholder="Buscar"
           placeholderTextColor="#808080"
+          value={busqueda}
+          onChangeText={setBusqueda}
         />
       </View>
       {cargando ? (
-        <ActivityIndicator size='large' color='#2D9CDB' style={{ marginTop:60 }} />
+        <ActivityIndicator size='large' color='#E6000D' style={{ marginTop:60 }} />
       ) : (
         <FlatList
           data={clientes}
@@ -106,7 +119,7 @@ export default function EjemploView() {
 }
 
 const styles = StyleSheet.create({
-  contenedor: { flex: 1, backgroundColor: '#EFEFEF', padding: 15 },
+  contenedor: { flex: 1, backgroundColor: '#EFEFEF', padding: 15, marginTop: 40 },
   header: {
     flexDirection: 'row', alignItems: 'center', marginBottom: 15
   },

@@ -38,3 +38,24 @@ export async function obtenerClientePorNIT(id: string): Promise<Cliente | null> 
   if (error) { console.error(error); return null; }
   return data;
 }
+
+// ── READ: Buscar contactos ─────────────────────────────────────
+export async function buscarClientes(texto: string): Promise<Cliente[]> {
+  const { data, error } = await supabase
+    .from('Cliente')
+    .select('*')
+    .or(`name.ilike.%${texto}%,nit.ilike.%${texto}%,sectorEconomico.ilike.%${texto}%`)
+    .order('name', { ascending: true });
+  if (error) { console.error(error); return []; }
+  return data ?? [];
+}
+
+export async function eliminarCliente(id: string): Promise<boolean> {
+  const { error } = await supabase
+    .from('Cliente')
+    .delete()
+    .eq('nit', id);
+  // RLS garantiza que solo puedes eliminar tus propios registros
+  if (error) { console.error(error); return false; }
+  return true;
+}

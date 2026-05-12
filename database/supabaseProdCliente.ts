@@ -24,3 +24,13 @@ export async function obtenerProdClientePorId(id: string): Promise<ProductoClien
   if (error) { console.error(error); return null; }
   return data;
 }
+
+export async function eliminarProdCliente(id: string): Promise<boolean> {
+  const { error } = await supabase
+    .from('ProductoCliente')
+    .delete()
+    .eq('clienteId', id);
+  // RLS garantiza que solo puedes eliminar tus propios registros
+  if (error) { console.error(error); return false; }
+  return true;
+}

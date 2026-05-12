@@ -26,3 +26,13 @@ export async function obtenerActaPorNumero(numero: string): Promise<Acta | null>
   if (error) { console.error(error); return null; }
   return data;
 }
+
+export async function eliminarActa(id: string): Promise<boolean> {
+  const { error } = await supabase
+    .from('Actas')
+    .delete()
+    .eq('numeroActa', id);
+  // RLS garantiza que solo puedes eliminar tus propios registros
+  if (error) { console.error(error); return false; }
+  return true;
+}
