@@ -1,11 +1,12 @@
 import { AcordionDinamico } from '@/components/acordionCard';
-import { Acta, obtenerActaPorNumero } from '@/database/supabaseActas';
+import { Acta, actualizarActa, guardarActa, obtenerActaPorNIT } from '@/database/supabaseActas';
 import { supabase } from '@/lib/supabase';
+import DateTimePicker from '@react-native-community/datetimepicker';
 import { User } from '@supabase/supabase-js';
 import { router, useLocalSearchParams } from 'expo-router';
 import { useEffect, useState } from 'react';
-import { Button, Image, KeyboardAvoidingView, Platform, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
-import { Cliente, obtenerClientePorNIT } from '../../../database/supabaseClientes';
+import { Alert, Button, Image, KeyboardAvoidingView, Modal, Platform, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { actualizarCliente, Cliente, guardarCliente, obtenerClientePorNIT } from '../../../database/supabaseClientes';
 
 
 export default function FormularioCliente() {
@@ -14,6 +15,11 @@ export default function FormularioCliente() {
   const [usuario, setUsuario] = useState<User | null>(null);
   const [cliente, setCliente] = useState<Cliente | null>(null);
   const [acta, setActa] = useState<Acta | null>(null);
+  const [fecha, setFecha] = useState<Date | null>(null);
+  const [texto, setTexto] = useState('Seleccionar fecha');
+  const [mostrar, setMostrar] = useState(false);
+  const [mostrarModal, setMostrarModal] = useState(false);
+  const [errores, setErrores] = useState<{ [key: string]: string}>({});
   const esEdicion = !!id;
   const tiposActa = ['Individual', 'Masiva'];
 
@@ -28,9 +34,16 @@ export default function FormularioCliente() {
       const clienteActual = obtenerClientePorNIT(id).then((data: Cliente | null) => {
         if (data) {
           setCliente(data);
-          const actaActual = obtenerActaPorNumero(data.actaId).then((actaData: Acta | null) => {
+          const actaActual = obtenerActaPorNIT(data.nit).then((actaData: Acta | null) => {
             if (actaData) {
               setActa(actaData);
+              
+              if (actaData.fecha){
+                const fechaDate = new Date(actaData.fecha);
+                setFecha(fechaDate);
+                let fFecha = fechaDate.getDate() + '/' + (fechaDate.getMonth() + 1) + '/' + fechaDate.getFullYear();
+                setTexto(fFecha);
+              }
             }
           });
         }
@@ -39,14 +52,168 @@ export default function FormularioCliente() {
     return () => {
       setCliente(null);
       setActa(null);
+      setFecha(null);
+      setTexto('Seleccionar fecha');
+      setMostrar(false);
+      setErrores({});
     };
   }, [id]);
 
-  const guardar = () => {
-    if (esEdicion) {
-      // Lógica de UPDATE en Supabase
-    } else {
-      // Lógica de INSERT en Supabase
+  const alCambiar = (e: any, fechaSeleccionada?: Date) => {
+    const currenteDate = fechaSeleccionada || fecha || new Date();
+    if (Platform.OS === 'android'){
+      setMostrar(false);
+    }
+
+    if (fechaSeleccionada){
+      setFecha(currenteDate);
+      let fFecha = fechaSeleccionada.getDate() + '/' + (fechaSeleccionada.getMonth() + 1) + '/' + fechaSeleccionada.getFullYear();
+      setTexto(fFecha);
+      setActa(prev => prev ? { ...prev, fecha: fechaSeleccionada.toISOString() } : null);
+    }
+  };
+
+  const mostrarDatePicker = () => {
+    setMostrar(true);
+  };
+
+  const validarFormulario = () => {
+    let erroresTemporales: { [key: string]: string } = {};
+
+    // Validaciones del Cliente
+    // Nombre cliente
+    if (!cliente?.name?.trim()) {
+      erroresTemporales.name = 'El nombre es obligatorio';
+    }else if(cliente?.name?.trim().length <= 3){
+      erroresTemporales.name = 'Nombre no puede ser menor de 3 caracteres';
+    };
+
+    // NIT
+    if(!esEdicion){
+      if (!cliente?.nit?.trim()) {
+        erroresTemporales.nit = 'El NIT es obligatorio';
+      }else if(cliente?.nit?.trim().length != 9){
+        erroresTemporales.nit = 'El NIT debe de ser 9 caracteres';
+      };
+    }
+    
+
+    // Sector económico
+    if (!cliente?.sectorEconomico?.trim()) {
+      erroresTemporales.sectorEconomico = 'El Sector Económico es obligatorio';
+    }
+
+    // Gerenete
+    if (!cliente?.gerente?.trim()) {
+      erroresTemporales.gerente = 'El nombre del gerente es obligatorio';
+    }else if(cliente?.gerente?.trim().length <= 3){
+      erroresTemporales.gerente = 'Nombre no puede ser menor de 3 caracteres';
+    };
+
+
+    // Telefono
+    if (!cliente?.telefono?.trim()) {
+      erroresTemporales.telefono = 'El teléfono es obligatorio';
+    }else if(cliente?.telefono?.trim().length != 10){
+      erroresTemporales.telefono = 'El teléfono debe ser de 10 números';
+    };
+      
+    // Correo
+    if (!cliente?.email?.trim()) {
+      erroresTemporales.email = 'El correo es obligatorio';
+    } else if (!/\S+@\S+\.\S+/.test(cliente.email)) {
+      erroresTemporales.email = 'El correo no es válido';
+    };
+
+    //Captación
+    if (!cliente?.captacion || cliente?.captacion <= 0) {
+      erroresTemporales.captacion = 'El valor de captación es obligatorio';
+    };
+
+    // Captación
+    if (!cliente?.colocacion || cliente?.colocacion <= 0) {
+      erroresTemporales.colocacion = 'El valor de colocación es obligatorio';
+    };
+
+    // Validaciones del Acta
+    // Número de Acta
+    if (!acta?.numeroActa?.trim()) {
+      erroresTemporales.numeroActa = 'El número de acta es obligatorio';
+    };
+    
+    // Tipo acta
+    if (!acta?.tipo) {
+      erroresTemporales.tipo = 'Debes seleccionar un tipo de acta';
+    };
+      
+    // Fecha
+    if (!acta?.fecha) {
+      erroresTemporales.fecha = 'La fecha es obligatoria';
+    };
+
+    // Guardamos los errores en el estado
+    setErrores(erroresTemporales);
+
+    // Si el objeto está vacío, significa que todo está perfecto (retorna true)
+    return Object.keys(erroresTemporales).length === 0;
+  };
+  
+
+  const guardar = async () => {
+    if (!validarFormulario()){
+      return;
+    };
+    try{
+      if (esEdicion) {
+        // Lógica de UPDATE en Supabase
+
+        const actaProcesada = {
+          ...acta,
+          fecha: fecha instanceof Date ? fecha.toISOString() : acta?.fecha
+        };
+
+        const [clienteActualizado, actaActualizado] = await Promise.all([
+          actualizarCliente(id, cliente!),
+          actualizarActa(acta!.numeroActa, acta!)
+        ])
+
+        if (clienteActualizado == null || actaActualizado == null){
+          Alert.alert('Error', 'No se pudo actualizar correctamente')
+          return;
+        }
+
+        Alert.alert('Éxito',"¡Cliente y Acta actualizados con éxito!");
+        router.back();
+      } else {
+        const nuevoCliente = await guardarCliente(cliente!)
+        if (!nuevoCliente){
+          Alert.alert('Error', 'No se pudo crear cliente')
+          setMostrarModal(false);
+          return;
+        }
+
+        const datosActa = {
+          ...acta, 
+          clienteId: nuevoCliente.nit
+        } as Acta;
+
+        const nuevaActa = await guardarActa(datosActa);
+
+        if(!nuevaActa){
+          Alert.alert('Error', 'Se creó cliente pero no acta')
+          setMostrarModal(false);
+          return;
+        }
+
+        Alert.alert('Éxito',"¡Cliente y Acta creados con éxito!");
+        setMostrarModal(false);
+        router.back(); // Regresamos a la lista
+      }
+    }catch (e){
+      console.error("Error en el proceso de guardado:", e);
+      alert("Ocurrió un error inesperado al guardar.");
+      Alert.alert('Error', 'No se pudo crear cliente')
+      setMostrarModal(false);
     }
   };
 
@@ -74,93 +241,104 @@ export default function FormularioCliente() {
             <TextInput 
                 placeholder="Nombre del cliente"
                 value={cliente?.name || ''}
-                onChangeText={text => setCliente(prev => prev ? { ...prev, name: text } : null)}
+                onChangeText={text => setCliente(prev => ({ ...(prev ?? {}), name: text} as Cliente))}
                 style={styles.input}
                 placeholderTextColor={'#808080'}
             />
+            {errores.name && <Text style={styles.textError}>{errores.name}</Text>}
             <TextInput 
                 placeholder="NIT"
                 value={cliente?.nit || ''}
-                onChangeText={text => setCliente(prev => prev ? { ...prev, nit: text } : null)}
+                onChangeText={text => setCliente(prev => ({ ...(prev ?? {}), nit: text} as Cliente))}
                 style={styles.input}
                 placeholderTextColor={'#808080'}
+                editable={!esEdicion}
             />
+            {errores.nit && <Text style={styles.textError}>{errores.nit}</Text>}
             <TextInput 
                 placeholder="Nombre gerente"
                 value={cliente?.gerente || ''}
-                onChangeText={text => setCliente(prev => prev ? { ...prev, gerente: text } : null)}
+                onChangeText={text => setCliente(prev => ({ ...(prev ?? {}), gerente: text} as Cliente))}
                 style={styles.input}
                 placeholderTextColor={'#808080'}
             />
+            {errores.gerente && <Text style={styles.textError}>{errores.gerente}</Text>}
             <TextInput 
                 placeholder="Sector económico"
                 value={cliente?.sectorEconomico || ''}
-                onChangeText={text => setCliente(prev => prev ? { ...prev, sectorEconomico: text } : null)}
+                onChangeText={text => setCliente(prev => ({ ...(prev ?? {}), sectorEconomico: text} as Cliente))}
                 style={styles.input}
                 placeholderTextColor={'#808080'}
             />
+            {errores.sectorEconomico && <Text style={styles.textError}>{errores.sectorEconomico}</Text>}
             <TextInput 
                 placeholder="Teléfono"
                 value={cliente?.telefono || ''}
-                onChangeText={text => setCliente(prev => prev ? { ...prev, telefono: text } : null)}
+                onChangeText={text => setCliente(prev => ({ ...(prev ?? {}), telefono: text} as Cliente))}
                 style={styles.input}
                 placeholderTextColor={'#808080'}
             />
+            {errores.telefono && <Text style={styles.textError}>{errores.telefono}</Text>}
             <TextInput 
                 placeholder="Correo electrónico"
                 value={cliente?.email || ''}
-                onChangeText={text => setCliente(prev => prev ? { ...prev, email: text } : null)}
+                onChangeText={text => setCliente(prev => ({ ...(prev ?? {}), email: text} as Cliente))}
                 style={styles.input}
                 placeholderTextColor={'#808080'}
             />
-
+            {errores.email && <Text style={styles.textError}>{errores.email}</Text>}
             <AcordionDinamico titulo='Contacto'>
                 <View>
                     <TextInput 
                         placeholder="Nombre"
                         value={cliente?.nombreContacto || ''}
-                        onChangeText={text => setCliente(prev => prev ? { ...prev, nombreContacto: text } : null)}
+                        onChangeText={text => setCliente(prev => ({ ...(prev ?? {}), nombreContacto: text} as Cliente))}
                         style={styles.inputCard}
                         placeholderTextColor={'#636363'}
                     />
                     <TextInput 
                         placeholder="Teléfono"
                         value={cliente?.telefonoContacto || ''}
-                        onChangeText={text => setCliente(prev => prev ? { ...prev, telefonoContacto: text } : null)}
+                        onChangeText={text => setCliente(prev => ({ ...(prev ?? {}), telefonoContacto: text} as Cliente))}
                         style={styles.inputCard}
                         placeholderTextColor={'#636363'}
                     />
                     <TextInput 
                         placeholder="Correo electrónico"
                         value={cliente?.correoContacto || ''}
-                        onChangeText={text => setCliente(prev => prev ? { ...prev, correoContacto: text } : null)}
+                        onChangeText={text => setCliente(prev => ({ ...(prev ?? {}), correoContacto: text} as Cliente))}
                         style={styles.inputCard}
                         placeholderTextColor={'#636363'}
                     />
                 </View>
             </AcordionDinamico>
+            
             <TextInput 
                 placeholder="Saldo de captación"
                 value={cliente?.captacion?.toString() || ''}
-                onChangeText={text => setCliente(prev => prev ? { ...prev, captacion: parseInt(text) || 0 } : null)}
+                onChangeText={text => setCliente(prev => ({ ...(prev ?? {}), captacion: parseInt(text) || 0 } as Cliente))}
                 style={styles.input}
                 placeholderTextColor={'#808080'}
             />
+            {errores.captacion && <Text style={styles.textError}>{errores.captacion}</Text>}
             <TextInput 
                 placeholder="Saldo de colocación"
                 value={cliente?.colocacion?.toString() || ''}
-                onChangeText={text => setCliente(prev => prev ? { ...prev, colocacion: parseInt(text) || 0 } : null)}
+                onChangeText={text => setCliente(prev => ({ ...(prev ?? {}), colocacion: parseInt(text) || 0 } as Cliente))}
                 style={styles.input}
                 placeholderTextColor={'#808080'}
             />
+            {errores.colocacion && <Text style={styles.textError}>{errores.colocacion}</Text>}
             <Text style={styles.titulo}>Acta</Text>
             <TextInput 
                 placeholder="Número de acta"
                 value={acta?.numeroActa || ''}
-                onChangeText={text => setActa(prev => prev ? { ...prev, numeroActa: text } : null)}
+                onChangeText={text => setActa(prev => ({ ...(prev ?? {}), numeroActa: text} as Acta))}
                 style={styles.input}
                 placeholderTextColor={'#808080'}
+                editable={!esEdicion}
             />
+            {errores.numeroActa && <Text style={styles.textError}>{errores.numeroActa}</Text>}
             <View style={[styles.rowSearch]}>
                     {tiposActa.map((g) => (
                         <View
@@ -172,10 +350,50 @@ export default function FormularioCliente() {
                     </View>
                     ))}
             </View>
-
-            <Button title={esEdicion ? "Actualizar" : "Crear"} onPress={router.back} color="#E6000D" /> 
+            {errores.tipo && <Text style={styles.textError}>{errores.tipo}</Text>}
+            <View style={styles.viewFecha}>
+              <TouchableOpacity onPress={mostrarDatePicker}>
+                    <Text style={styles.inputFecha}>{texto}</Text>
+              </TouchableOpacity>  
+              {mostrar && (
+                <DateTimePicker
+                  testID='dateTimePicker'
+                  value={fecha instanceof Date && !isNaN(fecha.getTime()) ? fecha : new Date()}
+                  mode={'date'}
+                  is24Hour={true}
+                  display='default'
+                  onChange={alCambiar}
+                  minimumDate={new Date()}
+                />
+              )}
+            </View>
+            {errores.fecha && <Text style={styles.textError}>{errores.fecha}</Text>}
+            <Button title={esEdicion ? "Actualizar" : "Crear"} onPress={guardar} color="#E6000D" /> 
         </ScrollView>
         
+        <Modal visible={mostrarModal} transparent={true} animationType="slide">
+          <View style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'flex-end' }}>
+            <View style={{ backgroundColor: 'white', padding: 20, borderTopLeftRadius: 20, borderTopRightRadius: 20 }}>
+              <Text style={styles.titulo}>Cliente:</Text>
+              <Text style = {styles.textButtonCard}>Nombre: {cliente?.name}</Text>
+              <Text style = {styles.textButtonCard}>NIT: {cliente?.nit}</Text>
+              <Text style = {styles.textButtonCard}>Gerente: {cliente?.gerente}</Text>
+              <Text style = {styles.textButtonCard}>Sector Económico: {cliente?.sectorEconomico}</Text>
+              <Text style = {styles.textButtonCard}>Telefono: {cliente?.telefono}</Text>
+              <Text style = {styles.textButtonCard}>Correo: {cliente?.email}</Text>
+              <Text style = {styles.textButtonCard}>Nombre contacto: {cliente?.nombreContacto}</Text>
+              <Text style = {styles.textButtonCard}>Teléfono contacto: {cliente?.telefonoContacto}</Text>
+              <Text style = {styles.textButtonCard}>Correo contacto: {cliente?.correoContacto}</Text>
+              <Text style = {styles.textButtonCard}>Captacion: {cliente?.captacion}</Text>
+              <Text style = {styles.textButtonCard}>Colocacion: {cliente?.colocacion}</Text>
+              <Text style={styles.titulo}>Acta:</Text>
+              <Text style = {styles.textButtonCard}>Numero de acta: {acta?.numeroActa}</Text>
+              <Text style = {styles.textButtonCard}>Fecha: {acta?.fecha}</Text>
+              <Text style = {styles.textButtonCard}>Tipo: {acta?.tipo}</Text>
+              <Button title='Chao' onPress={() => {setMostrarModal(false)}} color="#E6000D" /> 
+            </View>
+          </View>
+        </Modal>
     </View>
     </KeyboardAvoidingView>
   );
@@ -200,4 +418,7 @@ const styles = StyleSheet.create({
             color:'#000', fontFamily:'JosefinSans_400Regular', marginVertical: 8},
   searchIcon: { width: 24, height: 24,},
   vacio: { textAlign: 'center', marginTop: 60, fontSize: 16, color: '#555', fontFamily: 'JosefinSans_400Regular' },
+  viewFecha: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', borderRadius: 50, paddingVertical:16, paddingHorizontal: 15, backgroundColor: '#D9D9D9' },
+  inputFecha: {fontSize: 18, color: '#000', fontFamily: 'JosefinSans_400Regular', flex: 1 },
+  textError: { color: '#E6000D', fontSize: 14, fontFamily: 'JosefinSans_400Regular', marginLeft: 15, marginTop: -4, marginBottom: 8}
 });

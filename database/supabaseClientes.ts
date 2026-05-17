@@ -12,7 +12,6 @@ export type Cliente = {
    correoContacto: string;
    captacion: number;
    colocacion: number;
-   actaId: string;
    userId: string;
    photoUrl: string;
 }
@@ -58,4 +57,39 @@ export async function eliminarCliente(id: string): Promise<boolean> {
   // RLS garantiza que solo puedes eliminar tus propios registros
   if (error) { console.error(error); return false; }
   return true;
+}
+
+export async function guardarCliente(
+  datos: Omit<Cliente, 'photoUrl' | 'userId'>
+): Promise<Cliente | null>{
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return null;
+
+  const { data, error } = await supabase
+    .from('Cliente')
+    .insert([{
+      ...datos,
+      userId: user.id,  // ← IMPORTANTE: vincular con el usuario
+    }])
+    .select()
+    .single();
+  if (error) { console.error(error); return null; }
+  return data;
+}
+
+export async function actualizarCliente(
+  id: string,
+  datos: Partial<Cliente>
+) {
+  const { data, error } = await supabase
+    .from('Cliente')
+    .update(datos)
+    .eq('nit', id)
+    .select()
+    .single();
+  
+  if (error){
+    console.error(error); return null;
+  }
+  return data;
 }

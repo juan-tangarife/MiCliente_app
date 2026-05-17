@@ -1,8 +1,8 @@
 import { AcordionDinamico } from '@/components/acordionCard';
-import { Acta, eliminarActa, obtenerActaPorNumero } from '@/database/supabaseActas';
+import { Acta, obtenerActaPorNIT } from '@/database/supabaseActas';
 import { Cliente, eliminarCliente, obtenerClientePorNIT } from '@/database/supabaseClientes';
-import { Cupo, eliminarCuposPorActaId, obtenerCuposPorActaId } from '@/database/supabaseCupos';
-import { eliminarProdCliente, obtenerProdClientePorId, ProductoCliente } from '@/database/supabaseProdCliente';
+import { Cupo, obtenerCuposPorActaId } from '@/database/supabaseCupos';
+import { obtenerProdClientePorId, ProductoCliente } from '@/database/supabaseProdCliente';
 import { supabase } from '@/lib/supabase';
 import { User } from '@supabase/supabase-js';
 import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
@@ -38,11 +38,11 @@ export default function DetalleCliente() {
           console.error('Error cargando cliente:', error);
         }}, [id]);
 
-  const cargarActa = useCallback(async (actaId: string) => {
+  const cargarActa = useCallback(async (clienteId: string) => {
     if (!id) return;
     
       try {
-          const data = await obtenerActaPorNumero(actaId);
+          const data = await obtenerActaPorNIT(clienteId);
           if (!data) {
             setActa(null);
             setFechaActa(null);
@@ -56,6 +56,7 @@ export default function DetalleCliente() {
           } else {
             setFechaActa(null);
           }
+          return data;
       } catch (error) {
           console.error('Error cargando acta:', error);
       }}, [id]);
@@ -81,14 +82,14 @@ export default function DetalleCliente() {
   const cargarTodos = useCallback(async () => {
     if (!id) return;
     try {            
-      const clienteData = await obtenerClientePorNIT(id);
+      const clienteData = await cargarCliente();
       if (!clienteData) return;
-      setCliente(clienteData);
-      if(clienteData.actaId) {
-        await Promise.all([
-          cargarActa(clienteData.actaId),
-          cargarCupos(clienteData.actaId),
-        ]);
+      if(clienteData.nit) {
+        const actaData = await cargarActa(clienteData.nit);
+        if (!actaData) return;
+        if(actaData.numeroActa){
+          await cargarCupos(actaData.numeroActa);
+        }
       }
       await cargarProdCliente(); // esta usa id directamente, no actaId
     } catch (error) {
@@ -108,31 +109,50 @@ export default function DetalleCliente() {
       if (!cliente) return;
       try{
         await Promise.all([
-          eliminarCuposPorActaId(cliente.actaId),
-          eliminarProdCliente(cliente.nit),
-          eliminarActa(cliente.actaId),
           eliminarCliente(cliente.nit)
         ]);
+        Alert.alert('Eliminado correctamente','Se eliminó el cliente.')
         router.back();
       } catch (error) {
+        Alert.alert('Error', 'Hubo problemas con la eliminación.')
         console.error('Error eliminando cliente:', error);
       }
     };
 
   useEffect(() => {
-    cargarTodos();
+  cargarTodos();
 
-      // Suscribirse a cambios en la tabla contactos
-      const canal = supabase
+  const canal = supabase
     .channel('cambios_proyecto_canal')
-    .on('postgres_changes', { event: '*', schema: 'public', table: 'Cliente' },
-      () => cargarCliente())
-    .on('postgres_changes', { event: '*', schema: 'public', table: 'Actas' },
-      () => { if (cliente?.actaId) cargarActa(cliente.actaId); })
-    .on('postgres_changes', { event: '*', schema: 'public', table: 'Cupos' },
-      () => { if (cliente?.actaId) cargarCupos(cliente.actaId); })
-    .on('postgres_changes', { event: '*', schema: 'public', table: 'ProductoCliente' },
-      () => cargarProdCliente())
+    // 1. Cambios en Cliente
+    .on('postgres_changes', { event: '*', schema: 'public', table: 'Cliente' }, 
+      () => cargarCliente()
+    )
+    // 2. Cambios en Actas
+    .on('postgres_changes', { event: '*', schema: 'public', table: 'Actas' }, 
+      (payload) => {
+        // payload.new tiene los datos del acta que se acaba de actualizar o crear
+        const nuevaActa = payload.new as any;
+        if (nuevaActa && nuevaActa.clienteId === id) { 
+          // Si el acta le pertenece al cliente actual (id/nit), la recargamos
+          cargarActa(id); 
+        }
+      }
+    )
+    // 3. Cambios en Cupos
+    .on('postgres_changes', { event: '*', schema: 'public', table: 'Cupos' }, 
+      (payload) => {
+        const nuevoCupo = payload.new as any;
+        // Si el cupo se actualiza, usamos su propio actaId interno para recargar la lista
+        if (nuevoCupo && nuevoCupo.actaId) {
+          cargarCupos(nuevoCupo.actaId);
+        }
+      }
+    )
+    // 4. Cambios en ProductoCliente
+    .on('postgres_changes', { event: '*', schema: 'public', table: 'ProductoCliente' }, 
+      () => cargarProdCliente()
+    )
     .subscribe();
 
   return () => { 
@@ -143,8 +163,8 @@ export default function DetalleCliente() {
     setCupos(null);
     setProdClientes(null);
     setLoading(true);
-   };
-    }, [id]);
+  };
+}, [id, cargarTodos, cargarCliente, cargarActa, cargarCupos, cargarProdCliente]);
 
     // Pantalla de carga
   if (loading) {
