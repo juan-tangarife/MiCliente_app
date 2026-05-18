@@ -50,6 +50,13 @@ export default function TabLayout() {
           tabBarStyle: { display: 'none' }, // oculta la barra cuando se muestra esta pantalla
         }}
       />
+      <Tabs.Screen
+        name='cliente/formulario-detalle'
+        options={{
+          tabBarButton: () => null,  // lo oculta de la barra
+          tabBarStyle: { display: 'none' }, // oculta la barra cuando se muestra esta pantalla
+        }}
+      />
     </Tabs>
   );
 }

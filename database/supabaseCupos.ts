@@ -1,9 +1,10 @@
 import { supabase } from "@/lib/supabase";
+import { TipoCupo } from "@/types/enums";
 
 export type Cupo = {
     id: number;
     monto: number;
-    tipo: string;
+    tipo: TipoCupo;
     actaId: string;
 }
 
@@ -35,4 +36,21 @@ export async function eliminarCuposPorActaId(actaId: string): Promise<boolean> {
   // RLS garantiza que solo puedes eliminar tus propios registros
   if (error) { console.error(error); return false; }
   return true;
+}
+
+export async function guardarCupo(
+  datos: Cupo
+): Promise<Cupo | null>{
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return null;
+
+  const { data, error } = await supabase
+    .from('Cupos')
+    .insert([
+      datos
+    ])
+    .select()
+    .single();
+  if (error) { console.error(error); return null; }
+  return data;
 }

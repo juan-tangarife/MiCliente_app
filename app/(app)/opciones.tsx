@@ -1,4 +1,3 @@
-import { Cliente } from '@/database/supabaseClientes';
 import { User } from '@supabase/supabase-js';
 import { useRouter } from 'expo-router';
 import { useEffect, useState } from 'react';
@@ -7,10 +6,6 @@ import { supabase } from '../../lib/supabase';
 export default function Opciones() {
   const router = useRouter();
   const [usuario, setUsuario] = useState<User | null>(null);
-  const [clientes, setClientes] = useState<Cliente[]>([]);
-  const [cargando, setCargando] = useState(true);
-
-  
   useEffect(() => {
     supabase.auth.getUser().then(({ data: { user } }) => {
       setUsuario(user);

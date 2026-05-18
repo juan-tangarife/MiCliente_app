@@ -4,6 +4,8 @@ import { LayoutAnimation, Platform, StyleSheet, Text, TouchableOpacity, UIManage
 type Props = {
   titulo: string;
   children: string | React.ReactNode;
+  isOpen?: boolean;
+  onToggle?: () => void;
 };
 
 // Habilitar LayoutAnimation en Android
@@ -11,23 +13,28 @@ if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental
   UIManager.setLayoutAnimationEnabledExperimental(true);
 }
 
-export function AcordionDinamico({ titulo, children }: Props) {
+export function AcordionDinamico({ titulo, children, isOpen, onToggle }: Props) {
   const [abierto, setAbierto] = useState(false);
+  const estaAbierto = isOpen !== undefined ? isOpen : abierto;
 
   const toggleAcordion = () => {
     // Esto crea la animación suave de "empuje" para el resto de la pantalla
     LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
-    setAbierto(!abierto);
+    if(onToggle !== undefined){
+      onToggle();
+    }else{
+      setAbierto(!abierto);
+    }
   };
 
   return (
     <View style={styles.card}>
       <TouchableOpacity onPress={toggleAcordion} style={styles.header}>
         <Text style={styles.titulo}>{titulo}</Text>
-        <Text style={styles.flecha}>{abierto ? '▲' : '▼'}</Text>
+        <Text style={styles.flecha}>{estaAbierto ? '▲' : '▼'}</Text>
       </TouchableOpacity>
 
-      {abierto && (
+      {estaAbierto && (
         <View style={styles.contenido}>
           {children}
         </View>

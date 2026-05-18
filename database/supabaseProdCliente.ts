@@ -2,7 +2,8 @@ import { supabase } from "@/lib/supabase";
 
 export type ProductoCliente = {
     clienteId: string;
-    productoId: string;
+    productoId: number;
+    Productos: { nombre: string};
 }
 
 // ── READ: Leer contactos del usuario autenticado ───────────────
@@ -33,4 +34,21 @@ export async function eliminarProdCliente(id: string): Promise<boolean> {
   // RLS garantiza que solo puedes eliminar tus propios registros
   if (error) { console.error(error); return false; }
   return true;
+}
+
+export async function guardarProductoCliente(
+  datos: ProductoCliente
+): Promise<ProductoCliente | null>{
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return null;
+
+  const { data, error } = await supabase
+    .from('ProductoCliente')
+    .insert([
+      datos
+    ])
+    .select()
+    .single();
+  if (error) { console.error(error); return null; }
+  return data;
 }

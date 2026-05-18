@@ -157,12 +157,18 @@ export default function FormularioCliente() {
     // Si el objeto está vacío, significa que todo está perfecto (retorna true)
     return Object.keys(erroresTemporales).length === 0;
   };
-  
 
-  const guardar = async () => {
+  const handleGuardar = () => {
     if (!validarFormulario()){
       return;
     };
+    Alert.alert('¿Deseas guardar?', 'Se creará el cliente con los datos actuales', [
+      { text: 'Guardar', onPress: () => guardar() },
+      { text: 'Cancelar', style: 'cancel' }
+    ])
+  }
+
+  const guardar = async () => {
     try{
       if (esEdicion) {
         // Lógica de UPDATE en Supabase
@@ -183,7 +189,7 @@ export default function FormularioCliente() {
         }
 
         Alert.alert('Éxito',"¡Cliente y Acta actualizados con éxito!");
-        router.back();
+        router.push({ pathname: '/cliente/formulario-detalle', params: { id: clienteActualizado.nit } })
       } else {
         const nuevoCliente = await guardarCliente(cliente!)
         if (!nuevoCliente){
@@ -207,7 +213,7 @@ export default function FormularioCliente() {
 
         Alert.alert('Éxito',"¡Cliente y Acta creados con éxito!");
         setMostrarModal(false);
-        router.back(); // Regresamos a la lista
+        router.push({ pathname: '/cliente/formulario-detalle', params: { id: nuevoCliente.nit } })
       }
     }catch (e){
       console.error("Error en el proceso de guardado:", e);
@@ -368,7 +374,11 @@ export default function FormularioCliente() {
               )}
             </View>
             {errores.fecha && <Text style={styles.textError}>{errores.fecha}</Text>}
-            <Button title={esEdicion ? "Actualizar" : "Crear"} onPress={guardar} color="#E6000D" /> 
+            <TouchableOpacity style={{ flexDirection: 'row',justifyContent: 'flex-end'}} onPress={handleGuardar}>
+              <View style= {styles.button}>
+                <Text style={styles.textButton}>➜</Text>
+              </View>
+            </TouchableOpacity>
         </ScrollView>
         
         <Modal visible={mostrarModal} transparent={true} animationType="slide">
@@ -420,5 +430,7 @@ const styles = StyleSheet.create({
   vacio: { textAlign: 'center', marginTop: 60, fontSize: 16, color: '#555', fontFamily: 'JosefinSans_400Regular' },
   viewFecha: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', borderRadius: 50, paddingVertical:16, paddingHorizontal: 15, backgroundColor: '#D9D9D9' },
   inputFecha: {fontSize: 18, color: '#000', fontFamily: 'JosefinSans_400Regular', flex: 1 },
-  textError: { color: '#E6000D', fontSize: 14, fontFamily: 'JosefinSans_400Regular', marginLeft: 15, marginTop: -4, marginBottom: 8}
+  textError: { color: '#E6000D', fontSize: 14, fontFamily: 'JosefinSans_400Regular', marginLeft: 15, marginTop: -4, marginBottom: 8},
+  button: {backgroundColor: '#E6000D', height: 60, width: '50%', borderRadius: 30, alignItems: 'center', justifyContent: 'center', marginVertical: 12 },
+  textButton: { color: '#fff', fontSize: 36},
 });
