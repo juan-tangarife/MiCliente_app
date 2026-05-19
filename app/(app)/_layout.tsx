@@ -1,62 +1,30 @@
-import { Tabs } from 'expo-router';
-import React from 'react';
+import { Stack } from 'expo-router';
 
-import { HapticTab } from '@/components/haptic-tab';
-import { IconSymbol } from '@/components/ui/icon-symbol';
-import { useColorScheme } from '@/hooks/use-color-scheme';
-
-export default function TabLayout() {
-  const colorScheme = useColorScheme();
-
+export default function AppLayout() {
   return (
-    <Tabs
-      screenOptions={{
-        tabBarActiveTintColor: '#fff',
-        tabBarInactiveTintColor: 'rgba(255, 255, 255, 0.6)',
-        headerShown: false,
-        tabBarButton: HapticTab,
-        tabBarStyle: {
-          backgroundColor: '#E6000D',
-          borderTopWidth: 0,
-          height: 60,
-          paddingTop: 8,
-        },
-      }}>
-      <Tabs.Screen
-        name="index"
-        options={{
-          title: '',
-          tabBarIcon: ({ color }) => <IconSymbol size={28} name="house.fill" color={color} />,
-        }}
+    <Stack screenOptions={{ headerShown: false }}>
+      {/* El grupo de pestañas es la raíz del flujo protegido */}
+      <Stack.Screen name="(tabs)" />
+      
+      {/* Estas pantallas se abrirán en modo Stack (con animación de tarjeta encima) */}
+      <Stack.Screen 
+        name="cliente/[id]" 
+        options={{ 
+          animation: 'slide_from_right' // Animación nativa fluida
+        }} 
       />
-      <Tabs.Screen
-        name="opciones"
-        options={{
-          title: '',
-          tabBarIcon: ({ color }) => <IconSymbol size={32} name="plus" color={color} />,
-        }}
+      <Stack.Screen 
+        name="cliente/formulario" 
+        options={{ 
+          animation: 'slide_from_bottom' // Tipo modal hacia arriba
+        }} 
       />
-      <Tabs.Screen
-        name='cliente/[id]'
-        options={{
-          tabBarButton: () => null,  // lo oculta de la barra
-          tabBarStyle: { display: 'none' }, // oculta la barra cuando se muestra esta pantalla
-        }}
+      <Stack.Screen 
+        name="cliente/formulario-detalle" 
+        options={{ 
+          animation: 'slide_from_bottom' 
+        }} 
       />
-      <Tabs.Screen
-        name='cliente/formulario'
-        options={{
-          tabBarButton: () => null,  // lo oculta de la barra
-          tabBarStyle: { display: 'none' }, // oculta la barra cuando se muestra esta pantalla
-        }}
-      />
-      <Tabs.Screen
-        name='cliente/formulario-detalle'
-        options={{
-          tabBarButton: () => null,  // lo oculta de la barra
-          tabBarStyle: { display: 'none' }, // oculta la barra cuando se muestra esta pantalla
-        }}
-      />
-    </Tabs>
+    </Stack>
   );
 }

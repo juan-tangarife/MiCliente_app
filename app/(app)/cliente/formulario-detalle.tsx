@@ -30,7 +30,7 @@ export default function FormularioCupos() {
 
     const opcionesCupos = Object.values(TipoCupo);
 
-    // --- 1. FUNCIONES INDEPENDIENTES DE CARGA (Para reusar en Realtime y al iniciar) ---
+    // --- 1. FUNCIONES INDEPENDIENTES DE CARGA (Optimizadas) ---
     const cargarDatosIniciales = useCallback(async () => {
         try {
             // Cargar el acta por el NIT (id)
@@ -57,16 +57,7 @@ export default function FormularioCupos() {
         }
     }, [id]);
 
-    // Funciones específicas de recarga rápida para el canal Realtime
-    const recargarCuposOmitiendoActa = async (numeroActa: string) => {
-        const cuposData = await obtenerCuposPorActaId(numeroActa);
-        setCupos(cuposData || []);
-    };
-
-    const recargarProductosOmitiendoId = async () => {
-        const prodData = await obtenerProdClientePorId(id);
-        setProductos(prodData || []);
-    };
+    // 🗑️ SE ELIMINARON LAS FUNCIONES 'recargarCuposOmitiendoActa' Y 'recargarProductosOmitiendoId' PORQUE YA NO SE USAN
 
     // --- 2. EFECTOS ---
     useEffect(() => {
@@ -75,7 +66,7 @@ export default function FormularioCupos() {
         });
     }, []);
 
-    // Carga inicial al montar la pantalla
+    // Carga inicial al montar la pantalla (Súper limpio y optimizado)
     useEffect(() => {
         cargarDatosIniciales();
 
@@ -89,36 +80,9 @@ export default function FormularioCupos() {
             setProdSeleccionado('Tipo de producto');
             setErrores({});
         };
-    }, [id, cargarDatosIniciales]);
+    }, [cargarDatosIniciales]); // 🌟 Corregido: Solo depende de la función memorizada
 
-    // Canal exclusivo para la Suscripción en Tiempo Real
-    useEffect(() => {
-        if (!id) return;
-        const nombreCanal = `cambios_cliente_${id}`;
-
-        const canal = supabase
-            .channel(nombreCanal)
-            .on('postgres_changes', { event: '*', schema: 'public', table: 'Cupos' }, 
-            async (payload) => {                
-                const actaData = await obtenerActaPorNIT(id);
-                if (actaData?.numeroActa) {
-                    const cuposData = await obtenerCuposPorActaId(actaData.numeroActa);
-                    setCupos(cuposData || []);
-                }
-            })
-            .on('postgres_changes', { event: '*', schema: 'public', table: 'ProductoCliente' }, 
-            async (payload) => {                
-                const prodData = await obtenerProdClientePorId(id);
-                setProductos(prodData || []);
-            })
-            .subscribe((status) => {
-                console.log("Status del canal Realtime:", status);
-            });
-
-        return () => {
-            supabase.removeChannel(canal);
-        };
-    }, [id]);
+    // 🗑️ SE ELIMINÓ POR COMPLETO EL EFFECT DE LA SUSCRIPCIÓN REALTIME (`cambios_cliente_${id}`)
 
     // --- 3. LÓGICA DE FILTROS ---
     const tiposAsignadosCupos = cupos?.map(c => c.tipo) || [];
@@ -335,7 +299,7 @@ export default function FormularioCupos() {
                         </TouchableOpacity>
                     </View>
 
-                    <TouchableOpacity style={{ flexDirection: 'row', justifyContent: 'flex-end' }} onPress={() => router.push('/cliente/' + id)}>
+                    <TouchableOpacity style={{ flexDirection: 'row', justifyContent: 'flex-end' }} onPress={() => router.push(`/cliente/${id}`)}>
                         <View style={styles.button}>
                             <Text style={styles.textButton}>➜</Text>
                         </View>

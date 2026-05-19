@@ -1,8 +1,8 @@
+import { supabase } from '@/lib/supabase';
 import { User } from '@supabase/supabase-js';
 import { useRouter } from 'expo-router';
 import { useEffect, useState } from 'react';
 import { Alert, Image, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
-import { supabase } from '../../lib/supabase';
 export default function Opciones() {
   const router = useRouter();
   const [usuario, setUsuario] = useState<User | null>(null);
@@ -11,14 +11,19 @@ export default function Opciones() {
       setUsuario(user);
     });
   }, []);
-
-
-
-  const handleLogout = () => {
+  
+  const logOut = () => {
     supabase.auth.signOut().then(() => {
       setUsuario(null);
       Alert.alert('Sesión cerrada', 'Has cerrado sesión exitosamente.');
     }); 
+  }
+
+  const handleLogout = () => {
+    Alert.alert('¿Deseas cerrar sesión?', 'Al cerrar sesión volverás a la pantalla de iniciar sesión.', [
+      { text: 'Cerrar sesión',  onPress: () => logOut() },
+      { text: 'Cancelar', style: 'cancel' },
+    ]);
   };
 
   return (
@@ -26,7 +31,7 @@ export default function Opciones() {
       <TouchableOpacity onPress={handleLogout} disabled={!usuario}>
         <View style={styles.header}>
           <Image
-            source={require('../../assets/images/LittleIcono.png')}
+            source={require('@/assets/images/LittleIcono.png')}
             style={styles.logo}
           />
           <Text style={styles.nombre}>Hola, {usuario?.user_metadata?.nombre || 'Usuario'}</Text>
@@ -36,21 +41,21 @@ export default function Opciones() {
       <View style={styles.linea} />
       <TouchableOpacity onPress={() => router.push('/cliente/formulario')}>
         <View style={styles.row}>
-            <Image source={require('../../assets/images/anadir-amigo.png')} style={styles.icon} />
+            <Image source={require('@/assets/images/anadir-amigo.png')} style={styles.icon} />
             <Text style={styles.textRow}>Agregar cliente</Text>
         </View>  
       </TouchableOpacity>
       <View style={styles.linea}></View>
       <TouchableOpacity>
         <View style={styles.row}>
-            <Image source={require('../../assets/images/descargar.png')} style={styles.icon} />
+            <Image source={require('@/assets/images/descargar.png')} style={styles.icon} />
             <Text style={styles.textRow}>Importar clientes</Text>
         </View>  
       </TouchableOpacity>
       <View style={styles.linea}></View>
       <TouchableOpacity>
         <View style={styles.row}>
-            <Image source={require('../../assets/images/subir.png')} style={styles.icon} />
+            <Image source={require('@/assets/images/subir.png')} style={styles.icon} />
             <Text style={styles.textRow}>Exportar clientes</Text>
         </View>  
       </TouchableOpacity>

@@ -1,16 +1,17 @@
 import ClienteCard from '@/components/clienteCard';
 import { buscarClientes, Cliente, obtenerClientes } from '@/database/supabaseClientes';
+import { supabase } from '@/lib/supabase';
 import { User } from '@supabase/supabase-js';
 import { useRouter } from 'expo-router';
 import { useCallback, useEffect, useState } from 'react';
-import { ActivityIndicator, Alert, FlatList, Image, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
-import { supabase } from '../../lib/supabase';
+import { ActivityIndicator, Alert, FlatList, Image, RefreshControl, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 export default function EjemploView() {
   const router = useRouter();
   const [usuario, setUsuario] = useState<User | null>(null);
   const [clientes, setClientes] = useState<Cliente[]>([]);
   const [cargando, setCargando] = useState(true);
   const [busqueda, setBusqueda] = useState('');
+  const [refrescando, setRefrescando] = useState(false);
   
   useEffect(() => {
     supabase.auth.getUser().then(({ data: { user } }) => {
@@ -18,38 +19,31 @@ export default function EjemploView() {
     });
   }, []);
 
-  useEffect(() => {
-    cargar();
-    // Suscribirse a cambios en la tabla contactos
-    const canal = supabase
-      .channel('clientes_canal')         // nombre único del canal
-      .on(
-        'postgres_changes',               // tipo de evento
-        {
-          event: '*',                     // '*' = INSERT + UPDATE + DELETE
-          schema: 'public',
-          table: 'Cliente',
-        },
-        (payload) => {
-          // Se ejecuta cada vez que hay un cambio en la tabla
-          console.log('Cambio detectado:', payload.eventType);
-          cargar(); // recargar contactos para mostrar los cambios
-        }
-      )
-      .subscribe();
-
-    // Cancelar la suscripción al salir de la pantalla
-    return () => {
-      supabase.removeChannel(canal);
-    };
-  }, []);
+  
 
   const cargar = useCallback(async () => {
-    setCargando(true);
+    // Solo activamos el indicador de carga si no hay una búsqueda en proceso
+    if (busqueda.trim() === '') {
+      setCargando(true);
+    }
+    try {
+      const datos = await obtenerClientes();
+      setClientes(datos);
+    } catch (error) {
+      console.error("Error al obtener clientes en index:", error);
+    } finally {
+      setCargando(false);
+    }
+  }, [busqueda]);
+
+  const refrescar = useCallback(async () => {
     const datos = await obtenerClientes();
     setClientes(datos);
-    setCargando(false);
   }, []);
+
+    useEffect(() => {
+    cargar();
+    }, []);
 
   // Búsqueda en tiempo real con debounce simple
   useEffect(() => {
@@ -64,11 +58,24 @@ export default function EjemploView() {
     return () => clearTimeout(timer);
   }, [busqueda]);
 
-  const handleLogout = () => {
+  const onRefresh = async () => {
+      setRefrescando(true); 
+      await refrescar();
+      setRefrescando(false);
+  };
+
+  const logOut = () => {
     supabase.auth.signOut().then(() => {
       setUsuario(null);
       Alert.alert('Sesión cerrada', 'Has cerrado sesión exitosamente.');
     }); 
+  }
+
+  const handleLogout = () => {
+    Alert.alert('¿Deseas cerrar sesión?', 'Al cerrar sesión volverás a la pantalla de iniciar sesión.', [
+      { text: 'Cerrar sesión',  onPress: () => logOut() },
+      { text: 'Cancelar', style: 'cancel' },
+    ]);
   };
 
   return (
@@ -76,7 +83,7 @@ export default function EjemploView() {
       <TouchableOpacity onPress={handleLogout} disabled={!usuario}>
         <View style={styles.header}>
           <Image
-            source={require('../../assets/images/LittleIcono.png')}
+            source={require('@/assets/images/LittleIcono.png')}
             style={styles.logo}
           />
           <Text style={styles.nombre}>Hola, {usuario?.user_metadata?.nombre || 'Usuario'}</Text>
@@ -85,7 +92,7 @@ export default function EjemploView() {
       
       <View style={styles.searchView}>
         <Image
-          source={require('../../assets/images/buscar.png')}
+          source={require('@/assets/images/buscar.png')}
           style={styles.searchIcon}
         />
         <TextInput
@@ -103,10 +110,18 @@ export default function EjemploView() {
           data={clientes}
           keyExtractor={item => item.nit}
           renderItem={({ item }) => (
-            <ClienteCard cliente={item} onPress={() => router.push('/cliente/' + item.nit)} />
+            <ClienteCard cliente={item} onPress={() => router.push(`/cliente/${item.nit}`)} />
           )}
           contentContainerStyle={{ paddingTop:8, }}
           showsVerticalScrollIndicator={false}
+          refreshControl={
+            <RefreshControl
+                refreshing={refrescando}
+                onRefresh={onRefresh}
+                colors={['#E6000D']}
+                tintColor={'#E6000D'} 
+            />
+          }
           ListEmptyComponent={
             <Text style={styles.vacio}>
               No tienes contactos aún 📭
