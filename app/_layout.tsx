@@ -36,9 +36,16 @@ export default function RootLayout() {
   }, []);
 
   useEffect(() => {
-    if (loaded && !cargando) {
-      SplashScreen.hideAsync();
+    async function ocultarPantallaCarga() {
+      if (loaded && !cargando) {
+        try {
+          await SplashScreen.hideAsync();
+        } catch (e) {
+          console.warn("Error al ocultar el SplashScreen:", e);
+        }
+      }
     }
+    ocultarPantallaCarga();
   }, [loaded, cargando]);
 
   useEffect(() => {
