@@ -2,6 +2,7 @@
 import { useRouter } from 'expo-router';
 import { useState } from 'react';
 import {
+  Alert,
   Image,
   KeyboardAvoidingView, Platform,
   StyleSheet,
@@ -48,6 +49,10 @@ export default function Login() {
     }
     // Si no hay error, _layout.tsx detecta la sesión y redirige automáticamente
   };
+
+  const handleAyuda = () =>{
+      Alert.alert('Ayuda', 'Llame al ingeniero Juan José y le ayuda.');
+    }
 
   return (
     <KeyboardAvoidingView
@@ -108,9 +113,12 @@ export default function Login() {
                 Crear cuenta
               </Text>
             </TouchableOpacity>
-            <Text style={styles.linkTexto}>
-              Ayuda
-            </Text>
+            <TouchableOpacity onPress={handleAyuda}>
+              <Text style={styles.linkTexto}>
+                Ayuda
+              </Text>
+            </TouchableOpacity>
+            
           </View>
 
           

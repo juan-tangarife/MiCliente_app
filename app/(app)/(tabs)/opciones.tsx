@@ -41,22 +41,29 @@ export default function Opciones() {
       <View style={styles.linea} />
       <TouchableOpacity onPress={() => router.push('/cliente/formulario')}>
         <View style={styles.row}>
-            <Image source={require('@/assets/images/anadir-amigo.png')} style={styles.icon} />
-            <Text style={styles.textRow}>Agregar cliente</Text>
+            <View style={styles.tarjetaActa}>
+                <Image source={require('@/assets/images/anadir-amigo.png')} style={styles.icon} />
+                <Text style={styles.textRow}>Agregar cliente</Text>    
+            </View>
         </View>  
       </TouchableOpacity>
       <View style={styles.linea}></View>
       <TouchableOpacity>
         <View style={styles.row}>
-            <Image source={require('@/assets/images/descargar.png')} style={styles.icon} />
-            <Text style={styles.textRow}>Importar clientes</Text>
+            <View style={styles.tarjetaActa}>
+                <Image source={require('@/assets/images/descargar.png')} style={styles.icon} />
+                <Text style={styles.textRow}>Importar clientes</Text>
+            </View>
+            
         </View>  
       </TouchableOpacity>
       <View style={styles.linea}></View>
       <TouchableOpacity>
         <View style={styles.row}>
-            <Image source={require('@/assets/images/subir.png')} style={styles.icon} />
-            <Text style={styles.textRow}>Exportar clientes</Text>
+            <View style={styles.tarjetaActa}>
+                <Image source={require('@/assets/images/subir.png')} style={styles.icon} />
+                <Text style={styles.textRow}>Exportar clientes</Text>   
+            </View>
         </View>  
       </TouchableOpacity>
       <View style={styles.linea}></View>
@@ -74,9 +81,10 @@ const styles = StyleSheet.create({
     fontFamily: 'JosefinSans_400Regular', fontSize: 24, fontWeight: 'medium', padding: 10, alignContent: 'space-between'
   },
   vacio: { textAlign: 'center', marginTop: 60, fontSize: 16, color: '#555', fontFamily: 'JosefinSans_400Regular' },
-  linea:            { height:1, backgroundColor:'#5D5D5D', marginVertical:8 },
+  linea:            { height:1, backgroundColor:'#5D5D5D', marginVertical:4 },
   icon:             { width: 35, height: 35, marginBottom: 4, marginTop: 4, opacity:0.5 },
-  row:             { flexDirection:'row', alignItems:'center', paddingHorizontal:16, },
+  row:             { flexDirection:'row', alignItems:'center', paddingHorizontal:8, },
   title:          { fontSize:24, fontFamily:'JosefinSans_700Bold', color: '#E6000D', opacity:0.5, marginTop:16 },
   textRow:         { fontSize:24, marginLeft:16, fontFamily:'JosefinSans_400Regular', color: '#5D5D5D', marginTop:4 },
+  tarjetaActa: { flexDirection: 'row', alignItems:'center',backgroundColor: '#FFF', padding: 16, borderRadius: 15, marginVertical: 4, elevation: 1, flex:1, shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.1, shadowRadius: 2 },
 });

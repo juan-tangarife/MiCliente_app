@@ -112,7 +112,7 @@ export default function EjemploView() {
           renderItem={({ item }) => (
             <ClienteCard cliente={item} onPress={() => router.push(`/cliente/${item.nit}`)} />
           )}
-          contentContainerStyle={{ paddingTop:8, }}
+          contentContainerStyle={{ paddingTop:8, paddingBottom:90 }}
           showsVerticalScrollIndicator={false}
           refreshControl={
             <RefreshControl

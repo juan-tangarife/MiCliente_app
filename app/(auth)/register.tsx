@@ -2,6 +2,7 @@
 import { useRouter } from 'expo-router';
 import { useState } from 'react';
 import {
+  Alert,
   Image,
   KeyboardAvoidingView, Platform, ScrollView,
   StyleSheet,
@@ -80,6 +81,11 @@ export default function Registro() {
     );
   }
 
+    const handleAyuda = () =>{
+        Alert.alert('Ayuda', 'Llame al ingeniero Juan José y le ayuda.');
+      }
+  
+
   return (
     <KeyboardAvoidingView style={{flex:1}}
       behavior={Platform.OS==='ios'?'padding':'height'}
@@ -123,9 +129,11 @@ export default function Registro() {
                 Iniciar sesión
               </Text>
             </TouchableOpacity>
-            <Text style={styles.linkTexto}>
-              Ayuda
-            </Text>
+            <TouchableOpacity onPress={handleAyuda}>
+              <Text style={styles.linkTexto}>
+                Ayuda
+              </Text>
+            </TouchableOpacity>
           </View>
 
           
